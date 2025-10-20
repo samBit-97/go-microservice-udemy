@@ -1,0 +1,10 @@
+# Trip Preview API - HTTPie Commands
+
+# Preview Trip - San Francisco
+http POST :8081/trip/preview userID="user123" pickup:='{"latitude":37.7749,"longitude":-122.4194}' destination:='{"latitude":37.8049,"longitude":-122.4294}'
+
+# Preview Trip - New York
+http POST :8081/trip/preview userID="user456" pickup:='{"latitude":40.7128,"longitude":-74.0060}' destination:='{"latitude":40.7589,"longitude":-73.9851}'
+
+# Preview Trip - Missing UserID (Error Case)
+http POST :8081/trip/preview pickup:='{"latitude":40.7128,"longitude":-74.0060}' destination:='{"latitude":40.7589,"longitude":-73.9851}'
