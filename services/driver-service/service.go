@@ -1,12 +1,17 @@
 package main
 
 import (
-	"github.com/mmcloughlin/geohash"
+	"context"
+	"fmt"
+	"log"
 	math "math/rand/v2"
+	"ride-sharing/shared/messaging"
 	pb "ride-sharing/shared/proto/driver"
 	"ride-sharing/shared/util"
 	"slices"
 	"sync"
+
+	"github.com/mmcloughlin/geohash"
 )
 
 type Service struct {
@@ -63,4 +68,36 @@ func (s *Service) UnregisterDriver(driverId string) {
 			s.drivers = slices.Delete(s.drivers, i, i+1)
 		}
 	}
+}
+
+func (s *Service) ProcessTripCreatedEvent(ctx context.Context, tripID, userID string) error {
+	log.Printf("Processing trip %s for user %s", tripID, userID)
+	return nil
+}
+
+func (s *Service) FindAndNotifyDrivers(ctx context.Context, tripEvent messaging.TripCreatedEvent) (string, error) {
+	suitableDrivers := s.findAvailableDrivers(tripEvent.Trip.SelectedFare.PackageSlug)
+	log.Printf("found suitable drivers: %v", len(suitableDrivers))
+
+	if len(suitableDrivers) == 0 {
+		return "", fmt.Errorf("no suitable drivers found")
+	}
+
+	return suitableDrivers[0], nil
+}
+
+func (s *Service) findAvailableDrivers(packageType string) []string {
+	var matchingDrivers []string
+
+	for _, driver := range s.drivers {
+		if driver.Driver.PackageSlug == packageType {
+			matchingDrivers = append(matchingDrivers, driver.Driver.Id)
+		}
+	}
+
+	if len(matchingDrivers) == 0 {
+		return []string{}
+	}
+
+	return matchingDrivers
 }

@@ -49,7 +49,7 @@ var PredefinedRoutes = [][][]float64{
 func GenerateRandomPlate() string {
 	letters := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	plate := ""
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		plate += string(letters[rand.Intn(len(letters))])
 	}
 
