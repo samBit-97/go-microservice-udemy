@@ -1,17 +1,17 @@
-package main
+package dto
 
 import (
 	pb "ride-sharing/shared/proto/trip"
 	"ride-sharing/shared/types"
 )
 
-type previewTripRequest struct {
+type PreviewTripRequest struct {
 	UserID      string           `json:"userID"`
 	Pickup      types.Coordinate `json:"pickup"`
 	Destination types.Coordinate `json:"destination"`
 }
 
-func (p *previewTripRequest) toProto() *pb.PreviewTripRequest {
+func (p *PreviewTripRequest) ToProto() *pb.PreviewTripRequest {
 	return &pb.PreviewTripRequest{
 		UserID: p.UserID,
 		StartLocation: &pb.Coordinate{
@@ -25,12 +25,12 @@ func (p *previewTripRequest) toProto() *pb.PreviewTripRequest {
 	}
 }
 
-type startTripRequest struct {
+type StartTripRequest struct {
 	RideFareID string `json:"rideFareID"`
 	UserID     string `json:"userID"`
 }
 
-func (c *startTripRequest) toProto() *pb.CreateTripRequest {
+func (c *StartTripRequest) ToProto() *pb.CreateTripRequest {
 	return &pb.CreateTripRequest{
 		RideFareID: c.RideFareID,
 		UserID:     c.UserID,

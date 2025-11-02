@@ -13,7 +13,7 @@ k8s_resource('rabbitmq', port_forwards=['5672', '15672'], labels='tooling')
 ### End RabbitMQ ###
 ### API Gateway ###
 
-gateway_compile_cmd = 'CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o build/api-gateway ./services/api-gateway'
+gateway_compile_cmd = 'CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o build/api-gateway ./services/api-gateway/cmd/main.go'
 if os.name == 'nt':
   gateway_compile_cmd = './infra/development/docker/api-gateway-build.bat'
 
@@ -74,7 +74,7 @@ k8s_resource('trip-service', resource_deps=['trip-service-compile', 'rabbitmq'],
 ### End of Trip Service ###
 ### Driver Service ###
 
-driver_compile_cmd = 'CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o build/driver-service ./services/driver-service/'
+driver_compile_cmd = 'CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o build/driver-service ./services/driver-service/cmd/main.go'
 if os.name == 'nt':
  driver_compile_cmd = './infra/development/docker/driver-build.bat'
 

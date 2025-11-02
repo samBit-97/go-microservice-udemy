@@ -61,6 +61,26 @@ func (h *gRPCHandler) PreviewTrip(ctx context.Context, req *pb.PreviewTripReques
 	}, nil
 }
 
+// TODO: REFACTOR - Fix inconsistent state handling in CreateTrip (LSP violation)
+// WHY: Current implementation violates Liskov Substitution Principle:
+//   1. Trip is created and persisted to database
+//   2. If publishing event fails, method returns error
+//   3. BUT the trip was already created - client receives error but trip exists
+//   4. Creates orphaned data and inconsistent distributed state
+//   5. Client expects either: full success OR no side effects - current behavior violates this contract
+//   6. If publisher is replaced with different implementation, behavioral expectations break
+// RISKS:
+//   - Trip created but driver never notified (trip assigned but no one comes)
+//   - Customer charged but driver doesn't see the request
+//   - Message queue failure causes silent data corruption
+//   - No way to retry publishing without reprocessing
+// ACTION: Implement Outbox Pattern or async publishing:
+//   1. Store trip creation event in outbox table within same transaction
+//   2. Return success immediately once trip is created
+//   3. Background worker async publishes events with retry logic
+//   4. Maintains eventual consistency without blocking client
+//   5. Provides audit trail of all events
+// See: https://martinfowler.com/articles/patterns-of-distributed-systems/outbox.html
 func (h *gRPCHandler) CreateTrip(ctx context.Context, req *pb.CreateTripRequest) (*pb.CreateTripResponse, error) {
 	fareID := req.GetRideFareID()
 	userID := req.GetUserID()
@@ -74,6 +94,13 @@ func (h *gRPCHandler) CreateTrip(ctx context.Context, req *pb.CreateTripRequest)
 		return nil, status.Errorf(codes.Internal, "failed to create the trip: %v", err)
 	}
 
+	// TODO: REFACTOR - Replace synchronous publish with async outbox pattern
+	// WHY: Current synchronous publishing is problematic:
+	//   - Blocks client waiting for message broker
+	//   - No retry mechanism - single failure cascades to client error
+	//   - No audit trail of events
+	//   - Violates eventual consistency patterns for microservices
+	// ACTION: Store event in outbox, background worker publishes asynchronously
 	if err := h.publisher.PublishTripCreated(ctx, trip); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to publish the tripEvent: %v", err)
 	}
