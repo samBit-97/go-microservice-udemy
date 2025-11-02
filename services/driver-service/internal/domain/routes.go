@@ -1,9 +1,8 @@
-package main
+package domain
 
-import "math/rand"
-
-// Predefined routes for drivers (used for the gRPC Streaming module)
-// (these are San Francisco routes, get these coordinates from Google Maps for example and build a custom route if you want)
+// PredefinedRoutes for drivers (used for the gRPC Streaming module)
+// These are San Francisco routes, get these coordinates from Google Maps
+// for example and build a custom route if you want
 var PredefinedRoutes = [][][]float64{
 	{
 		{37.768727753110106, -122.41345597077878},
@@ -44,14 +43,4 @@ var PredefinedRoutes = [][][]float64{
 		{37.78647766728455, -122.42321282905907},
 		{37.78300293033823, -122.4225475612199},
 	},
-}
-
-func GenerateRandomPlate() string {
-	letters := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	plate := ""
-	for i := 0; i < 3; i++ {
-		plate += string(letters[rand.Intn(len(letters))])
-	}
-
-	return plate
 }
