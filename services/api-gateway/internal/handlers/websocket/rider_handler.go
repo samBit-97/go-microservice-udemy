@@ -28,6 +28,6 @@ func (h *WebSocketHandler) HandleRiderConnection(w http.ResponseWriter, r *http.
 			log.Printf("Error reading message: %v", err)
 			break
 		}
-		log.Printf("Recieved message from rider %s: %v", userID, msg)
+		log.Printf("Received message from rider %s: %s", userID, string(msg))
 	}
 }

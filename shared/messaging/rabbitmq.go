@@ -57,6 +57,7 @@ func (r *rabbitmqBroker) setupExchangeAndQueues() error {
 		return fmt.Errorf("failed to declare exchange: %s : %w", TripExchange, err)
 	}
 
+	// Queue for driver-service to find available drivers for trips
 	if err := r.declareAndBindQueue(
 		FindAvailableDriversQueue,
 		[]string{
@@ -65,6 +66,17 @@ func (r *rabbitmqBroker) setupExchangeAndQueues() error {
 		TripExchange); err != nil {
 		return err
 	}
+
+	// Queue for API Gateway to notify drivers about trip requests
+	if err := r.declareAndBindQueue(
+		DriverCmdTripRequestQueue,
+		[]string{
+			contracts.DriverCmdTripRequest, // Driver found and assigned to trip
+		},
+		TripExchange); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -164,16 +176,27 @@ func (r *rabbitmqBroker) Consume(ctx context.Context, queue string, handler Mess
 	}
 
 	go func() {
-		for delivery := range deliveries {
-			// Call handler
-			if err := handler(ctx, delivery); err != nil {
-				log.Printf("failed to handle message %v", err)
-				delivery.Nack(false, true) // Requeue on handler error
-				continue
-			}
+		for {
+			select {
+			case <-ctx.Done():
+				log.Printf("Consumer stopped for queue %s: context cancelled", queue)
+				return
+			case delivery, ok := <-deliveries:
+				if !ok {
+					log.Printf("Consumer stopped for queue %s: channel closed", queue)
+					return
+				}
 
-			// Acknowledge successful processing
-			delivery.Ack(false)
+				// Call handler
+				if err := handler(ctx, delivery); err != nil {
+					log.Printf("failed to handle message %v", err)
+					delivery.Nack(false, true) // Requeue on handler error
+					continue
+				}
+
+				// Acknowledge successful processing
+				delivery.Ack(false)
+			}
 		}
 	}()
 

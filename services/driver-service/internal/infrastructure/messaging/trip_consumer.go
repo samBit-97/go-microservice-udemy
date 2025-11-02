@@ -72,7 +72,7 @@ func (c *tripConsumer) handleTripEventCreated(ctx context.Context, tripEvent mes
 	}
 
 	log.Printf("found driver %s for trip %s", driverID, tripEvent.Trip.Id)
-	return c.publishDriverFoundEvent(ctx, tripEvent)
+	return c.publishDriverFoundEvent(ctx, driverID, tripEvent)
 }
 
 // publishDriverNotFoundEvent publishes an event when no drivers are available
@@ -86,15 +86,15 @@ func (c *tripConsumer) publishDriverNotFoundEvent(ctx context.Context, tripEvent
 }
 
 // publishDriverFoundEvent publishes an event when a driver is found and assigned
-func (c *tripConsumer) publishDriverFoundEvent(ctx context.Context, tripEvent messaging.TripCreatedEvent) error {
-	log.Printf("publishing message with routing key: %v", contracts.DriverCmdRegister)
+func (c *tripConsumer) publishDriverFoundEvent(ctx context.Context, driverID string, tripEvent messaging.TripCreatedEvent) error {
+	log.Printf("publishing message with routing key: %v for driver: %s", contracts.DriverCmdTripRequest, driverID)
 	marshalledEvent, err := json.Marshal(tripEvent)
 	if err != nil {
 		return err
 	}
 
-	return c.messageBroker.Publish(ctx, contracts.DriverCmdRegister, contracts.AmqpMessage{
-		OwnerID: tripEvent.Trip.UserID,
+	return c.messageBroker.Publish(ctx, contracts.DriverCmdTripRequest, contracts.AmqpMessage{
+		OwnerID: driverID,
 		Data:    marshalledEvent,
 	})
 }

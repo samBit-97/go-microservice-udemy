@@ -14,6 +14,7 @@ import (
 	wsHandlers "ride-sharing/services/api-gateway/internal/handlers/websocket"
 	"ride-sharing/services/api-gateway/internal/websocket"
 	"ride-sharing/shared/env"
+	"ride-sharing/shared/messaging"
 )
 
 var (
@@ -22,6 +23,20 @@ var (
 
 func main() {
 	log.Println("Starting API Gateway")
+
+	// Initialize RabbitMQ connection
+	rabbitMQuri := env.GetString("RABBITMQ_URI", "")
+	if rabbitMQuri == "" {
+		log.Fatal("RABBITMQ_URI environment variable is required")
+	}
+
+	rabbitMq, err := messaging.NewRabbitMQ(rabbitMQuri)
+	if err != nil {
+		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+	}
+	defer rabbitMq.Close()
+	log.Println("RabbitMQ connection established")
+
 	wsUpgrader := websocket.NewWebSocketUpgrader()
 	connManager := websocket.NewConnectionManager()
 
@@ -36,7 +51,7 @@ func main() {
 	}
 
 	tripHandler := httpHandlers.NewTripHandler(tripClient)
-	wsHandler := wsHandlers.NewWebSocketHandler(connManager, wsUpgrader, driverClient)
+	wsHandler := wsHandlers.NewWebSocketHandler(connManager, wsUpgrader, driverClient, rabbitMq)
 
 	mux := http.NewServeMux()
 
