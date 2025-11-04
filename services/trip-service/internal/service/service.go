@@ -7,7 +7,8 @@ import (
 	"io"
 	"net/http"
 	"ride-sharing/services/trip-service/internal/domain"
-	"ride-sharing/shared/proto/trip"
+	pbd "ride-sharing/shared/proto/driver"
+	pb "ride-sharing/shared/proto/trip"
 	"ride-sharing/shared/types"
 
 	tripTypes "ride-sharing/services/trip-service/pkg/types"
@@ -31,7 +32,7 @@ func (s *service) CreateTrip(ctx context.Context, fare *domain.RideFareModel) (*
 		UserID:   fare.UserID,
 		Status:   "pending",
 		RideFare: fare,
-		Driver:   &trip.TripDriver{},
+		Driver:   &pb.TripDriver{},
 	}
 	return s.repo.CreateTrip(ctx, trip)
 }
@@ -146,4 +147,14 @@ func (s *service) GetAndValidateFare(ctx context.Context, fareID, userId string)
 	}
 
 	return fare, nil
+}
+
+// GetTripByID implements domain.TripService.
+func (s *service) GetTripByID(ctx context.Context, tripID string) (*domain.TripModel, error) {
+	return s.repo.GetTripByID(ctx, tripID)
+}
+
+// UpdateTrip implements domain.TripService.
+func (s *service) UpdateTrip(ctx context.Context, tripID string, status string, driver *pbd.Driver) error {
+	return s.repo.UpdateTrip(ctx, tripID, status, driver)
 }

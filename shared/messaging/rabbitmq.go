@@ -67,11 +67,41 @@ func (r *rabbitmqBroker) setupExchangeAndQueues() error {
 		return err
 	}
 
-	// Queue for API Gateway to notify drivers about trip requests
+	// Queue for API Gateway to forward trip requests to drivers via WebSocket
 	if err := r.declareAndBindQueue(
 		DriverCmdTripRequestQueue,
 		[]string{
 			contracts.DriverCmdTripRequest, // Driver found and assigned to trip
+		},
+		TripExchange); err != nil {
+		return err
+	}
+
+	// Queue for API Gateway to forward driver responses to riders via WebSocket
+	if err := r.declareAndBindQueue(
+		DriverCmdTripResponseQueue,
+		[]string{
+			contracts.DriverCmdTripAccept,  // Driver accepted trip
+			contracts.DriverCmdTripDecline, // Driver declined trip
+		},
+		TripExchange); err != nil {
+		return err
+	}
+
+	// Queue for API Gateway to notify riders when no drivers are available
+	if err := r.declareAndBindQueue(
+		NotifyDriverNoDriversFoundQueue,
+		[]string{
+			contracts.TripEventNoDriversFound,
+		},
+		TripExchange); err != nil {
+		return err
+	}
+
+	if err := r.declareAndBindQueue(
+		NotifyDriverAssignedQueue,
+		[]string{
+			contracts.TripEventDriverAssigned,
 		},
 		TripExchange); err != nil {
 		return err

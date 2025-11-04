@@ -11,7 +11,6 @@ import (
 	pb "ride-sharing/shared/proto/driver"
 
 	"github.com/gorilla/websocket"
-	"github.com/rabbitmq/amqp091-go"
 )
 
 func (h *WebSocketHandler) HandleDriverConnection(w http.ResponseWriter, r *http.Request) {
@@ -46,24 +45,61 @@ func (h *WebSocketHandler) HandleDriverConnection(w http.ResponseWriter, r *http
 		messaging.DriverCmdTripRequestQueue,
 	}
 
-	handler := h.createDriverMessageHandler()
+	// Use the common message handler to forward RabbitMQ messages to driver's WebSocket
+	handler := h.createMessageHandler("driver")
 	for _, q := range queues {
 		if err := h.messageBroker.Consume(ctx, q, handler); err != nil {
 			log.Printf("Consumer error for queue %s: %v", q, err)
 		}
 	}
 
-	h.handleDriverMessages(conn, userID)
+	h.handleDriverMessages(ctx, conn, userID)
 }
 
-func (h *WebSocketHandler) handleDriverMessages(conn *websocket.Conn, userID string) {
+func (h *WebSocketHandler) handleDriverMessages(ctx context.Context, conn *websocket.Conn, userID string) {
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			log.Printf("Error reading message from driver %s: %v", userID, err)
 			break
 		}
-		log.Printf("Received message from driver %s: %s", userID, string(msg))
+
+		type driverMessage struct {
+			Type string          `json:"type"`
+			Data json.RawMessage `json:"data"`
+		}
+
+		var driverMsg driverMessage
+		if err := json.Unmarshal(msg, &driverMsg); err != nil {
+			log.Printf("Error unmarshalling driver message: %v", err)
+			continue
+		}
+
+		switch driverMsg.Type {
+
+		case contracts.DriverCmdLocation:
+			continue
+
+		case contracts.DriverCmdTripAccept, contracts.DriverCmdTripDecline:
+			// Extract riderID from the message data to use as OwnerID
+			var tripResponse struct {
+				RiderID string `json:"riderID"`
+			}
+			if err := json.Unmarshal(driverMsg.Data, &tripResponse); err != nil {
+				log.Printf("Error unmarshaling trip response data: %v", err)
+				continue
+			}
+
+			if err := h.messageBroker.Publish(ctx, driverMsg.Type, contracts.AmqpMessage{
+				OwnerID: tripResponse.RiderID, // Use rider's ID, not driver's ID
+				Data:    driverMsg.Data,
+			}); err != nil {
+				log.Printf("Error publishing message to rabbitmq: %v", err)
+			}
+
+		default:
+			log.Printf("Unknown message type: %v", driverMsg.Type)
+		}
 	}
 }
 
@@ -90,41 +126,5 @@ func (h *WebSocketHandler) unregisterDriver(ctx context.Context, userID string, 
 	})
 	if err != nil {
 		log.Printf("Error unregistering driver %s: %v", userID, err)
-	}
-}
-
-func (h *WebSocketHandler) createDriverMessageHandler() messaging.MessageHandler {
-	return func(ctx context.Context, delivery amqp091.Delivery) error {
-		var amqpMsg contracts.AmqpMessage
-		if err := json.Unmarshal(delivery.Body, &amqpMsg); err != nil {
-			log.Printf("Failed to unmarshal AMQP message: %v, body: %s", err, string(delivery.Body))
-			// Don't requeue malformed messages - they'll never succeed
-			return nil
-		}
-
-		userID := amqpMsg.OwnerID
-		var payload any
-		if amqpMsg.Data != nil {
-			if err := json.Unmarshal(amqpMsg.Data, &payload); err != nil {
-				log.Printf("Failed to unmarshal payload for user %s: %v", userID, err)
-				// Don't requeue malformed messages
-				return nil
-			}
-		}
-
-		wsMsg := contracts.WSMessage{
-			Type: delivery.RoutingKey,
-			Data: payload,
-		}
-
-		// If sending fails (e.g., driver not connected), log but don't requeue
-		if err := h.connManager.SendMessage(userID, wsMsg); err != nil {
-			log.Printf("Failed to send message to driver %s: %v", userID, err)
-			// Driver might not be connected yet, but message was valid - don't requeue
-			return nil
-		}
-
-		log.Printf("Successfully forwarded message to driver %s: %s", userID, delivery.RoutingKey)
-		return nil
 	}
 }

@@ -46,6 +46,17 @@ func main() {
 
 	log.Println("Starting Rabbit MQ connection")
 	publisher := events.NewTripEventPublisher(rabbitMq)
+	consumer := events.NewDriverConsumer(rabbitMq, svc)
+
+	// Start RabbitMQ consumer in background
+	go func() {
+		log.Printf("Starting RabbitMQ consumer for queue: %s", messaging.DriverCmdTripResponseQueue)
+		// Consume driver accept/decline responses from the correct queue
+		if err := consumer.ConsumeDriverResponse(ctx, messaging.DriverCmdTripResponseQueue, nil); err != nil {
+			log.Printf("Consumer error: %v", err)
+			cancel()
+		}
+	}()
 
 	lis, err := net.Listen("tcp", GrpcAddr)
 	if err != nil {

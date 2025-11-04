@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	math "math/rand/v2"
 	"ride-sharing/services/driver-service/internal/util"
 	"ride-sharing/shared/messaging"
@@ -88,7 +89,9 @@ func (s *driverService) FindAndNotifyDrivers(ctx context.Context, tripEvent mess
 		return "", fmt.Errorf("no suitable drivers found")
 	}
 
-	return suitableDrivers[0], nil
+	randomIndex := rand.Intn(len(suitableDrivers))
+
+	return suitableDrivers[randomIndex], nil
 }
 
 func (s *driverService) findAvailableDrivers(packageType string) []string {
